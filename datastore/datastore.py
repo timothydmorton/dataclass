@@ -4,7 +4,6 @@ import os, os.path
 import pandas as pd
 import numpy as np
 
-
 class DataStore(object):
     def __init__(self, data=None, **kwargs):
         """Basic constructor.
@@ -34,18 +33,17 @@ class DataStore(object):
 
             if need_tables != []:
                 raise ValueError('You must provide table(s): {}'.format(need_tables))
-
+            
     @property
     def _othertables(self):
         """list of names of other tables to save (besides "data")
 
-        all tables must be pandas DataFrames
+        all tables must be pandas DataFrames or Series
         """
         return []
 
-    def save_hdf(self, filename, path='',
-                 tables=None, properties=None,
-                 overwrite=False, append=false):
+    def save_hdf(self, filename, path='', properties=None,
+                 overwrite=False, append=False):
         """Saves to hdf5 file, under given path
 
         all attributes are attached to the 'data' table
@@ -64,19 +62,17 @@ class DataStore(object):
 
         #write other attributes
         store = pd.HDFStore(filename)
-        attrs = store.get_storer('{}/{}'.format(path,self._maintable))
+        attrs = store.get_storer('{}/{}'.format(path,self._maintable)).attrs
 
         if properties is None:
             properties = {}
         for p in self._properties:
             properties[p] = getattr(self, p)
         attrs.properties = properties
-
         #save type, so that object can only be restored to proper type
         attrs.type = type(self)
         store.close()
 
-        #save other tables
         for t in self._othertables:
             df = getattr(self, t)
             df.to_hdf(filename, '{}/{}'.format(path,t))
@@ -87,7 +83,7 @@ class DataStore(object):
         """
 
         store = pd.HDFStore(filename)
-        attrs = store.get_storer('{}/{}'.format(path,self._maintable))
+        attrs = store.get_storer('{}/{}'.format(path,self._maintable)).attrs
 
         #check for property type
         mytype = attrs.type

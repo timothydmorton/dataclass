@@ -47,6 +47,6 @@ setup(name = "datastore",
         'Topic :: Scientific/Engineering',
         'Topic :: Scientific/Engineering :: Astronomy'
         ],
-      install_requires=['pandas>=0.13'],
+      install_requires=['pandas>=0.13', 'hashutils'],
       zip_safe=False
 ) 
