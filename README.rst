@@ -10,3 +10,4 @@ To install::
     python setup.py install
     
     
+simple example demonstrated `here <http://nbviewer.ipython.org/github/timothydmorton/dataclass/blob/master/examples/test_datastore.ipynb>`_.
