@@ -10,7 +10,6 @@ class DataClass(object):
 
         All kwargs must be pickleable or pandas tables.
         """
-        self._maintable = 'data' 
         self._properties = []
 
         if data is None:
@@ -36,6 +35,12 @@ class DataClass(object):
             if need_tables != []:
                 raise ValueError('You must provide table(s): {}'.format(need_tables))
             
+    @property
+    def _maintable(self):
+        """If the main data table is not called 'data', this must be overwritten
+        """
+        return 'data'
+
     @property
     def _othertables(self):
         """list of names of other tables to save (besides "data")
