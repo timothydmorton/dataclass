@@ -8,6 +8,7 @@ class DataClass(object):
     def __init__(self, data=None, **kwargs):
         """Basic constructor.
 
+        All kwargs must be pickleable or pandas tables.
         """
         self._maintable = 'data' 
         self._properties = []
@@ -22,7 +23,8 @@ class DataClass(object):
             self.data = data
 
             for kw,val in kwargs.items():
-                self._properties.append(kw)
+                if type(val) not in (pd.DataFrame, pd.Series):
+                    self._properties.append(kw)
                 setattr(self, kw, val)
             
             #require proper other tables to be defined
