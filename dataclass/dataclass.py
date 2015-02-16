@@ -73,8 +73,9 @@ class DataClass(object):
 
         if properties is None:
             properties = {}
-        for p in self._properties:
-            properties[p] = getattr(self, p)
+        if hasattr(self, '_properties'):
+            for p in self._properties:
+                properties[p] = getattr(self, p)
         attrs.properties = properties
         #save type, so that object can only be restored to proper type
         attrs.type = type(self)
