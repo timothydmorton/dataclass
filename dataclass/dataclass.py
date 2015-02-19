@@ -1,121 +1,121 @@
-from __future__ import print_function, division
+from __future__ import (division, print_function, absolute_import,
+                        unicode_literals)
 
 import os, os.path
 import pandas as pd
 import numpy as np
 
-class DataClass(object):
-    def __init__(self, data=None, **kwargs):
+class DataObject(object):
+    """
+    An abstract class that enables saving to HDF files, with attribute retention
+
+    Subclasses must define _tables and _params, lists of table and parameter
+    names to be saved/restored
+    """
+
+    #subclasses should name the tables to save...
+    _tables = []
+
+    #...and the other parameters to pickle
+    _params = []
+
+    #subclasses define parameter defaults here
+    defaults = {}
+    
+    def __init__(self, **kwargs):
         """Basic constructor.
 
-        All kwargs must be pickleable or pandas tables.
         """
-        self._properties = []
+        for k,v in kwargs.items():
+            if k not in (self._tables + self._params):
+                raise NotImplementedError('{} must be in _tables or _params!'.format(k)) 
+            setattr(self, k, v)
 
-        if data is None:
-            return
-        elif type(data)==type(''):
-            self.load_hdf(data)
-        else:
-            assert type(data) in (pd.DataFrame, pd.Series)
+        #check to see if all required arguments are set
+        missing = []
+        for p in (self._tables + self._params):
+            if not hasattr(self, p):
+                missing.append(p)
+        if len(missing) > 0:
+            raise RuntimeError('Required parameters {} not provided.'.format(missing))
 
-            self.data = data
-
-            for kw,val in kwargs.items():
-                if type(val) not in (pd.DataFrame, pd.Series):
-                    self._properties.append(kw)
-                setattr(self, kw, val)
-            
-            #require proper other tables to be defined
-            need_tables = []
-            for t in self._othertables:
-                if not hasattr(self, t):
-                    need_tables.append(t)
-
-            if need_tables != []:
-                raise ValueError('You must provide table(s): {}'.format(need_tables))
-            
-    @property
-    def _maintable(self):
-        """If the main data table is not called 'data', this must be overwritten
-        """
-        return 'data'
-
-    @property
-    def _othertables(self):
-        """list of names of other tables to save (besides "data")
-
-        all tables must be pandas DataFrames or Series
-        """
-        return []
-
-    def save_hdf(self, filename, path='', properties=None,
+    def get_arg(self, k, kwargs):
+        if k in kwargs:
+            return kwargs.pop(k)
+        if k in self.defaults:
+            return self.defaults[k]
+        raise RuntimeError("Missing required argument {0}".format(k))
+    
+    def save_hdf(self, filename, path='', 
                  overwrite=False, append=False):
         """Saves to hdf5 file, under given path
 
-        all attributes are attached to the 'data' table
+        If overwrite is True, existing file will be deleted
+        
+        If append is True, only existing path will 
+        be rewritten, if it exists.
         """
 
         if os.path.exists(filename):
             if overwrite:
                 os.remove(filename)
-            elif not append:
-                raise IOError('{} exists. Set either overwrite or append option.'.format(filename))
+            else:
+                store = pd.HDFStore(filename)
+                if path in store:
+                    if append:
+                        #delete any paths beginning with path
+                        for k in store.keys():
+                            if re.match('path',k):
+                                del store[k]
+                        store.close()
+                    else:
+                        store.close()
+                        raise IOError('{} in {} exists. Set either overwrite or append option.'.format(path,filename))
+        
+        #write tables 
+        for tab in self._tables:
+            t = getattr(self, tab)
+            t.to_hdf(filename, '{}/{}'.format(path, tab))
 
-
-        #write main datatable
-        df = getattr(self, self._maintable)
-        df.to_hdf(filename, '{}/{}'.format(path, self._maintable))
-
-        #write other attributes
+        #write other attributes, attached to a blank DataFrame
         store = pd.HDFStore(filename)
-        attrs = store.get_storer('{}/{}'.format(path,self._maintable)).attrs
+        store['{}/_params'.format(path)] = pd.DataFrame()
+        attrs = store.get_storer('{}/_params'.format(path)).attrs
+        
+        params = {}
+        for par in self._params:
+            params[par] = getattr(self, par)
 
-        if properties is None:
-            properties = {}
-        if hasattr(self, '_properties'):
-            for p in self._properties:
-                properties[p] = getattr(self, p)
-        attrs.properties = properties
-        #save type, so that object can only be restored to proper type
+        attrs.params = params
         attrs.type = type(self)
         store.close()
 
-        for t in self._othertables:
-            df = getattr(self, t)
-            df.to_hdf(filename, '{}/{}'.format(path,t))
-
-    
-    def load_hdf(self, filename, path=''):
+    @classmethod
+    def load_hdf(cls, filename, path=''):
         """Loads from hdf5 file, restoring correct properties to object
         """
 
         store = pd.HDFStore(filename)
-        attrs = store.get_storer('{}/{}'.format(path,self._maintable)).attrs
+        attrs = store.get_storer('{}/_params'.format(path)).attrs
 
         #check for property type
         mytype = attrs.type
-        if mytype != type(self):
-            raise TypeError('Saved DataStore is {}.  Please instantiate proper class before loading.'.format(mytype))
+        if mytype != cls:
+            store.close()
+            raise TypeError('Saved DataObject is {}.  Cannot load into {}.'.format(mytype,cls))
 
-        #restore attributes
-        for kw, val in attrs.properties.items():
-            setattr(self, kw, val)
+        #make a default object
+        new = cls() #this shouldn't do any big calculation...
 
-        store.close()
+        #set attributes appropriately
+        #fits tables
+        for tab in cls._tables:
+            setattr(new, tab, store['{}/{}'.format(path, tab)])
 
-        #load main data table
-        data = pd.read_hdf(filename, '{}/{}'.format(path,self._maintable),
-                           autoclose=True)
-        setattr(self, self._maintable, data)
+        #then other params
+        for par in cls._params:
+            setattr(new, par, attrs.params[par])
 
-        #load other tables, if necessary
-        for t in self._othertables:
-            df = pd.read_hdf(filename, '{}/{}'.format(path,t),
-                             autoclose=True)
-            setattr(self, t, df)
-
-        return self
-
+        return new
         
         
