@@ -14,9 +14,9 @@ if sys.version_info[0] < 3:
     import __builtin__ as builtins
 else:
     import builtins
-builtins.__dataclass_SETUP__ = True
-import dataclass
-version = dataclass.__version__
+builtins.__DATAOBJECT_SETUP__ = True
+import dataobject
+version = dataobject.__version__
 
 
 # Publish the library to PyPI.
@@ -31,9 +31,9 @@ if "tag" in sys.argv:
     sys.exit()
 
 
-setup(name = "dataclass",
+setup(name = "dataobject",
       version = version,
-      description = "A generic object enabling straightforward persistance of data tables and attributes.",
+      description = "An abstract object class enabling straightforward persistance of data tables and attributes.",
       long_description = readme(),
       author = "Timothy D. Morton",
       author_email = "tim.morton@gmail.com",
